@@ -121,6 +121,27 @@ guardrail trước khi quyết định bước kế tiếp. Điều kiện route
   `state.sources` với text của `final_answer`; nếu citation coverage < 30%, ghi cảnh báo vào
   `state.errors` (không raise, không chặn kết quả) — best-effort quality gate.
 
+## Observability / tracing
+
+Hai tầng, bổ sung cho nhau:
+
+1. **In-state trace (luôn bật)**: mọi agent gọi `state.add_trace_event(...)`, nên `ResearchState.trace`
+   luôn chứa đủ chuỗi quyết định của Supervisor và kết quả từng worker. Đây là nguồn cho
+   `reports/trace_example.json` và không phụ thuộc nhà cung cấp nào.
+2. **LangSmith (bật khi có `LANGSMITH_API_KEY`)**: `observability/trace_span()` mirror mỗi span
+   (`researcher.search`, `researcher.llm_call`, `analyst.llm_call`, `writer.llm_call`) thành một
+   run trên LangSmith, kèm duration và các attribute mà agent set trong block.
+
+Hai điểm thiết kế đáng lưu ý:
+
+- **Tracing không bao giờ được làm hỏng research run.** Lỗi từ LangSmith (mất mạng, key sai) chỉ
+  degrade về span local kèm log warning. Ngược lại, exception từ *chính block của caller* thì phải
+  truyền nguyên vẹn ra ngoài, nếu không `AgentExecutionError` sẽ bị nuốt và guardrail retry/
+  max_iterations mất tác dụng — có test riêng cho cả hai chiều này trong `tests/test_tracing.py`.
+- **Chỉ cần set `LANGSMITH_API_KEY`, không cần `LANGSMITH_TRACING=true`.** LangSmith mặc định tắt
+  tracing và sẽ *âm thầm* dựng run rồi không upload; `trace_span` bật tracing tường minh để tránh
+  tình trạng "nhìn như đã trace mà server không nhận được gì".
+
 ## Benchmark plan
 
 Chạy qua `scripts/run_benchmark.py --query "..."`, dùng `evaluation.run_benchmark` cho cả
