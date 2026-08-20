@@ -11,3 +11,6 @@ build/
 reports/*.json
 reports/*.md
 !.gitkeep
+!reports/benchmark_report.md
+!reports/failure_mode.md
+!reports/trace_example.json
